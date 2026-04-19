@@ -1,6 +1,6 @@
 """Single source of truth for all business rules.
 
-Both the BentoML service and the Streamlit UI import from here,
+Both the BentoML service and the FastAPI backend import from here,
 eliminating the risk of rules drifting between layers.
 """
 

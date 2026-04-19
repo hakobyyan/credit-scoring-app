@@ -1,7 +1,7 @@
 """Pydantic models for the API contract between the service and the UI.
 
 Used by both the BentoML service (input validation, response construction)
-and the Streamlit API client (response parsing).
+and the FastAPI backend (response parsing).
 """
 
 from __future__ import annotations
