@@ -8,7 +8,6 @@ returning default values.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 import requests
 
@@ -66,7 +65,7 @@ class ScoringAPIClient:
         health_url = f"{self._base_url}/health"
         try:
             # BentoML built-in readiness probe (GET)
-            resp = requests.get(readyz_url, timeout=3)
+            resp = requests.get(readyz_url, timeout=self._timeout)
             resp.raise_for_status()
         except requests.ConnectionError:
             raise ServiceUnavailableError("Cannot connect to scoring service")
@@ -77,7 +76,7 @@ class ScoringAPIClient:
 
         # Fetch model info from our /health API (POST for BentoML api)
         try:
-            resp = requests.post(health_url, json={}, timeout=3)
+            resp = requests.post(health_url, json={}, timeout=self._timeout)
             resp.raise_for_status()
             return resp.json()
         except Exception as exc:
@@ -107,8 +106,9 @@ class ScoringAPIClient:
             raise ValidationError(str(detail))
 
         if resp.status_code >= 500:
-            logger.error("Server error %d from %s", resp.status_code, url)
-            raise ScoringError(f"Service error: HTTP {resp.status_code}")
+            body = resp.text[:2000]
+            logger.error("Server error %d from %s: %s", resp.status_code, url, body)
+            raise ScoringError(f"Service error: HTTP {resp.status_code}: {body}")
 
         try:
             resp.raise_for_status()

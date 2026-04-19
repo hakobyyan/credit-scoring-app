@@ -84,7 +84,7 @@ CREDIT_TYPES = {
         "min_score": 580,
         "min_term_months": 12,
         "max_term_months": 84,
-        "min_amount": 1_000,
+        "min_amount": 100,
         "max_amount": 50_000,
         "max_dti": 0.43,
         "rates": {
@@ -212,7 +212,7 @@ FEATURE_DISPLAY_NAMES = {
     "Hist_LoanFrequencyPerYear": "Loans Per Year",
     "Hist_AvgLoanGap": "Avg Gap Between Loans",
     "Hist_ShortTermLoanShare": "Short-term Loan Share",
-    "Hist_MeanEMIs": "Avg EMIs Per Loan",
+    "Hist_MeanEMIs": "Avg Installments Per Loan",
     "Hist_MaxAmount": "Max Historical Loan Amount",
     "LoanAmountToTxnNetRatio": "Loan-to-Cash-Flow Ratio",
     "AgeToLoanRatio": "Age-to-Loan Ratio",

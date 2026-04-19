@@ -32,7 +32,7 @@ class CustomerProfile(BaseModel):
     CustomerID: Optional[str] = None
     FirstName: str
     LastName: str
-    MiddleName: Optional[str] = ""
+    MiddleName: Optional[str] = None
     DateOfBirth: date
     DateRegistered: date
     Country: Optional[str] = ""
@@ -73,8 +73,8 @@ class TransactionRecord(BaseModel):
 
 class EvaluationRequest(BaseModel):
     customer_profile: CustomerProfile
-    loan_history: list[LoanRecord] = Field(default_factory=list)
-    transaction_history: list[TransactionRecord] = Field(default_factory=list)
+    loan_history: list[LoanRecord] = Field(default_factory=list, max_length=10_000)
+    transaction_history: list[TransactionRecord] = Field(default_factory=list, max_length=50_000)
 
 
 # ── Response models ──

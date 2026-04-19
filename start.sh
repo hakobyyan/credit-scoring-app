@@ -4,7 +4,7 @@
 # Uses PID files for clean process management.
 # Ports and paths are configurable via .env or environment variables.
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -17,13 +17,14 @@ fi
 
 # ── Configuration (with defaults) ──
 BENTOML_PORT="${BENTOML_PORT:-3000}"
-STREAMLIT_PORT="${STREAMLIT_PORT:-8501}"
+WEBAPP_PORT="${WEBAPP_PORT:-8501}"
 VENV_PATH="${VENV_PATH:-$SCRIPT_DIR/../.venv}"
 SERVICE_DIR="$SCRIPT_DIR/service"
 APP_DIR="$SCRIPT_DIR/app"
-PID_DIR="${PID_DIR:-/tmp}"
+PID_DIR="${PID_DIR:-$SCRIPT_DIR/.pids}"
+mkdir -p "$PID_DIR"
 BENTOML_PID_FILE="$PID_DIR/credit_scoring_bentoml.pid"
-STREAMLIT_PID_FILE="$PID_DIR/credit_scoring_streamlit.pid"
+WEBAPP_PID_FILE="$PID_DIR/credit_scoring_webapp.pid"
 READYZ_URL="http://localhost:$BENTOML_PORT/readyz"
 
 # Colors
@@ -70,7 +71,7 @@ _stop_pid_file() {
 
 echo -e "${YELLOW}🧹 Cleaning up existing processes...${NC}"
 _stop_pid_file "$BENTOML_PID_FILE" "BentoML"
-_stop_pid_file "$STREAMLIT_PID_FILE" "Streamlit"
+_stop_pid_file "$WEBAPP_PID_FILE" "WebApp"
 
 # ── Start BentoML service ──
 echo -e "${YELLOW}🔧 Starting BentoML API service on port $BENTOML_PORT...${NC}"
@@ -104,12 +105,12 @@ if [ $WAITED -ge $MAX_WAIT ]; then
     exit 1
 fi
 
-# ── Start Streamlit UI ──
-echo -e "${YELLOW}🎨 Starting Streamlit UI on port $STREAMLIT_PORT...${NC}"
+# ── Start Web Application (FastAPI + Uvicorn) ──
+echo -e "${YELLOW}🎨 Starting Web Application on port $WEBAPP_PORT...${NC}"
 cd "$SCRIPT_DIR"
-streamlit run app/main.py --server.port "$STREAMLIT_PORT" &
-STREAMLIT_PID=$!
-echo "$STREAMLIT_PID" > "$STREAMLIT_PID_FILE"
+uvicorn app.server:app --host 0.0.0.0 --port "$WEBAPP_PORT" &
+WEBAPP_PID=$!
+echo "$WEBAPP_PID" > "$WEBAPP_PID_FILE"
 sleep 2
 
 echo ""
@@ -118,7 +119,7 @@ echo -e "${GREEN}✅ Credit Scoring Application is running!${NC}"
 echo -e "${GREEN}════════════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "   📊 API Service:    ${YELLOW}http://localhost:$BENTOML_PORT${NC}"
-echo -e "   🖥️  Streamlit UI:   ${YELLOW}http://localhost:$STREAMLIT_PORT${NC}"
+echo -e "   🖥️  Web App:        ${YELLOW}http://localhost:$WEBAPP_PORT${NC}"
 echo -e "   📚 API Docs:       ${YELLOW}http://localhost:$BENTOML_PORT/docs${NC}"
 echo ""
 echo -e "${YELLOW}Press Ctrl+C to stop all services${NC}"
@@ -129,7 +130,7 @@ cleanup() {
     echo ""
     echo -e "${YELLOW}🛑 Shutting down services...${NC}"
     _stop_pid_file "$BENTOML_PID_FILE" "BentoML"
-    _stop_pid_file "$STREAMLIT_PID_FILE" "Streamlit"
+    _stop_pid_file "$WEBAPP_PID_FILE" "WebApp"
     echo -e "${GREEN}✅ All services stopped${NC}"
     exit 0
 }

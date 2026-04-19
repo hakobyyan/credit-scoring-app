@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credit Score Check</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="container-fluid d-flex align-items-center justify-content-between">
+            <h1 class="mb-0" id="main-header">💳 Credit Score Check</h1>
+            <div class="d-flex align-items-center gap-2">
+                <label for="language-select" id="language-label" class="text-white mb-0">🌐</label>
+                <select id="language-select" class="form-select form-select-sm" style="width:auto">
+                    <option value="English">English</option>
+                    <option value="Русский">Русский</option>
+                    <option value="Հայերեն">Հայերեն</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mt-3" style="max-width:900px">
+        <!-- Health indicator (inline, compact) -->
+        <div class="d-flex align-items-center gap-2 mb-3 small" id="health-indicator">
+            <span class="health-dot offline"></span>
+            <span id="health-text">Checking...</span>
+        </div>
+
+        <!-- Customer Identification -->
+        <div class="card mb-3" id="customer-card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h5 id="step1-header" class="mb-0">👤 Customer Identification</h5>
+                <button id="clear-customer-btn" class="btn btn-sm btn-outline-secondary d-none" title="Clear selection">✕ Clear</button>
+            </div>
+            <div class="card-body">
+                <!-- Mode selector tabs -->
+                <div class="customer-mode-tabs mb-3">
+                    <button class="mode-tab active" id="mode-existing-btn" data-mode="existing">
+                        <span class="mode-icon">🔍</span>
+                        <span id="mode-existing-label">Find Existing</span>
+                    </button>
+                    <button class="mode-tab" id="mode-new-btn" data-mode="new">
+                        <span class="mode-icon">➕</span>
+                        <span id="mode-new-label">New Customer</span>
+                    </button>
+                </div>
+
+                <!-- Existing Customer Search -->
+                <div id="existing-customer-section">
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label for="last-name-select" id="last-name-label" class="form-label small fw-semibold">Last Name *</label>
+                            <div class="autocomplete-wrap">
+                                <input type="text" id="last-name-select" class="form-control" autocomplete="off" placeholder="Start typing...">
+                                <div id="last-name-dropdown" class="autocomplete-dropdown d-none"></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label for="first-name-select" id="first-name-label" class="form-label small fw-semibold">First Name *</label>
+                            <div class="autocomplete-wrap">
+                                <input type="text" id="first-name-select" class="form-control" autocomplete="off" placeholder="Start typing...">
+                                <div id="first-name-dropdown" class="autocomplete-dropdown d-none"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="search-btn" class="btn btn-primary w-100 mb-2">
+                        <span class="search-btn-text">🔍 Search Customer</span>
+                    </button>
+                    <div id="search-result" class="mt-2"></div>
+                </div>
+
+                <!-- New Customer Form -->
+                <div id="new-customer-section" class="d-none">
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-4">
+                            <label id="new-first-label" class="form-label small fw-semibold">First Name *</label>
+                            <input type="text" id="new-first-name" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label id="new-last-label" class="form-label small fw-semibold">Last Name *</label>
+                            <input type="text" id="new-last-name" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label id="new-middle-label" class="form-label small fw-semibold">Middle Name</label>
+                            <input type="text" id="new-middle-name" class="form-control">
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-4">
+                            <label id="new-dob-label" class="form-label small fw-semibold">Date of Birth *</label>
+                            <input type="date" id="new-dob" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label id="new-registered-label" class="form-label small fw-semibold">Date Registered</label>
+                            <input type="date" id="new-date-registered" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label id="new-country-label" class="form-label small fw-semibold">Country</label>
+                            <input type="text" id="new-country" class="form-control">
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-4">
+                            <label id="new-dependents-label" class="form-label small fw-semibold">Dependents</label>
+                            <input type="number" id="new-dependents" class="form-control" min="0" value="0">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customer Info Card (shown after selection) -->
+                <div id="customer-info-card" class="d-none mt-3"></div>
+            </div>
+        </div>
+
+        <!-- Financial History -->
+        <div class="card mb-3" id="financial-history-card">
+            <div class="card-header">
+                <h5 id="financial-history-header" class="mb-0">Financial History</h5>
+            </div>
+            <div class="card-body">
+                <ul class="nav nav-tabs" id="historyTabs">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#loans-tab-pane" id="loans-tab-btn">Loans</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#txns-tab-pane" id="txns-tab-btn">Transactions</button>
+                    </li>
+                </ul>
+                <div class="tab-content mt-2">
+                    <div class="tab-pane fade show active" id="loans-tab-pane">
+                        <table class="table table-sm table-bordered" id="loans-table">
+                            <thead>
+                                <tr>
+                                    <th id="loan-date-th">Loan Date</th>
+                                    <th id="loan-amount-th">Amount</th>
+                                    <th id="loan-emis-th">EMIs</th>
+                                    <th id="loan-status-th">Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="loans-tbody"></tbody>
+                        </table>
+                        <button class="btn btn-sm btn-outline-secondary" id="add-loan-btn">+ Add Loan</button>
+                    </div>
+                    <div class="tab-pane fade" id="txns-tab-pane">
+                        <table class="table table-sm table-bordered" id="txns-table">
+                            <thead>
+                                <tr>
+                                    <th id="txn-date-th">Date</th>
+                                    <th id="txn-amount-th">Amount</th>
+                                    <th id="txn-type-th">Type</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="txns-tbody"></tbody>
+                        </table>
+                        <button class="btn btn-sm btn-outline-secondary" id="add-txn-btn">+ Add Transaction</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex gap-2 mb-3">
+            <button id="evaluate-btn" class="btn btn-success flex-fill">📊 Evaluate Customer</button>
+            <button id="save-draft-btn" class="btn btn-secondary">💾 Save Draft</button>
+            <button id="reset-btn" class="btn btn-outline-danger">🔄 Reset</button>
+        </div>
+        <div id="action-feedback" class="mb-3"></div>
+
+        <!-- Results Panel -->
+        <div id="results-panel">
+            <div id="results-placeholder" class="card">
+                <div class="card-body text-center text-muted py-5">
+                    <p id="results-placeholder-text">Complete the customer form and click <strong>Evaluate Customer</strong> to see results here.</p>
+                </div>
+            </div>
+            <div id="results-content" class="d-none">
+                <div id="score-card" class="card mb-3"></div>
+                <div id="data-completeness" class="mb-3"></div>
+                <div id="score-interpretation" class="card mb-3">
+                    <div class="card-body" id="score-interpretation-body"></div>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-header"><h6 id="why-header" class="mb-0">Why This Score?</h6></div>
+                    <div class="card-body" id="explanations-panel"></div>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-header"><h6 id="affordability-header" class="mb-0">Affordability (FMRC)</h6></div>
+                    <div class="card-body" id="affordability-panel"></div>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-header"><h6 id="products-header" class="mb-0">Eligible Products</h6></div>
+                    <div class="card-body" id="products-panel"></div>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-header"><h6 id="calculator-header" class="mb-0">Loan Calculator</h6></div>
+                    <div class="card-body" id="calculator-panel"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer mt-4">
+        <div class="container-fluid">
+            <p id="footer-tip" class="mb-1"></p>
+            <p id="footer-security" class="mb-0"></p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/translations.js"></script>
+    <script src="/static/js/calculator.js"></script>
+    <script src="/static/js/components.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -27,9 +27,9 @@ def _project_root() -> Path:
 class Settings:
     # ── Networking ──
     api_url: str = field(default_factory=lambda: os.environ.get("API_URL", "http://localhost:3000"))
-    api_timeout: int = field(default_factory=lambda: int(os.environ.get("API_TIMEOUT", "30")))
+    api_timeout: int = field(default_factory=lambda: max(1, int(os.environ.get("API_TIMEOUT", "30"))))
     bentoml_port: int = field(default_factory=lambda: int(os.environ.get("BENTOML_PORT", "3000")))
-    streamlit_port: int = field(default_factory=lambda: int(os.environ.get("STREAMLIT_PORT", "8501")))
+    webapp_port: int = field(default_factory=lambda: int(os.environ.get("WEBAPP_PORT", "8501")))
 
     # ── Model ──
     model_tag: str = field(default_factory=lambda: os.environ.get("MODEL_TAG", "credit_scoring:latest"))

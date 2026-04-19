@@ -4,22 +4,71 @@ Supports English, Russian, and Armenian.
 New keys added for: data completeness, SHAP explanations, product cards,
 health status indicator, and two-pane layout labels.
 """
-
 from __future__ import annotations
-import streamlit as st
 
 # ── Mapping dicts: display label -> English value sent to API ──
 LOAN_STATUS_MAP = {
     "English": {"Closed": "Closed", "Active": "Active", "Defaulted": "Defaulted"},
-    "Русский": {"Закрыт": "Closed", "Активен": "Active", "Просрочен": "Defaulted"},
-    "Հայերեն": {"Փակված": "Closed", "Ակտիվ": "Active", "Ծանր ժամկետային": "Defaulted"},
+    "Русский": {"Закрыт": "Closed", "Активен": "Active", "Дефолт": "Defaulted"},
+    "Հայերեն": {"Փակված": "Closed", "Ակտիվ": "Active", "Դեֆոլտ": "Defaulted"},
 }
 
 TXN_TYPE_MAP = {
     "English": {"Incoming": "Incoming", "Outgoing": "Outgoing"},
     "Русский": {"Входящий": "Incoming", "Исходящий": "Outgoing"},
-    "Հայերեն": {"Մուտք": "Incoming", "Ելք": "Outgoing"},
+    "Հայերեն": {"Մուտք": "Incoming", "Ելք": "Outgoing"}
+    }
+
+# ── Translated SHAP feature display names (keyed by English name) ──
+FEATURE_DISPLAY_NAMES_I18N: dict[str, dict[str, str]] = {
+    "Русский": {
+        "Previous Defaults": "Предыдущие дефолты",
+        "Avg Transaction Amount": "Средняя сумма транзакции",
+        "Net Cash Flow (6 months)": "Чистый денежный поток (6 мес.)",
+        "Net Cash Flow (3 months)": "Чистый денежный поток (3 мес.)",
+        "Transaction Count": "Количество транзакций",
+        "Days Since Last Transaction": "Дней с последней транзакции",
+        "Outgoing/Incoming Ratio": "Соотношение расходов к доходам",
+        "Recent Outgoing Ratio": "Доля недавних расходов",
+        "Days Since Last Loan": "Дней с последнего кредита",
+        "Months Since First Loan": "Месяцев с первого кредита",
+        "Loans Per Year": "Кредитов в год",
+        "Avg Gap Between Loans": "Средний интервал между кредитами",
+        "Short-term Loan Share": "Доля краткосрочных кредитов",
+        "Avg Installments Per Loan": "Среднее кол-во взносов по кредиту",
+        "Max Historical Loan Amount": "Макс. сумма кредита в истории",
+        "Loan-to-Cash-Flow Ratio": "Соотношение кредита к ден. потоку",
+        "Age-to-Loan Ratio": "Соотношение возраста к кредиту",
+        "Current Loan Amount": "Сумма текущего кредита",
+        "Days Since Registration": "Дней с регистрации",
+        "Application Day of Week": "День недели подачи заявки",
+        "Customer Age": "Возраст клиента",
+    },
+    "Հայերեն": {
+        "Previous Defaults": "Նախորդ դեֆոլտներ",
+        "Avg Transaction Amount": "Գործարքի միջին գումար",
+        "Net Cash Flow (6 months)": "Զուտ դրամական հոսք (6 ամիս)",
+        "Net Cash Flow (3 months)": "Զուտ դրամական հոսք (3 ամիս)",
+        "Transaction Count": "Գործարքների քանակ",
+        "Days Since Last Transaction": "Օրեր վերջին գործարքից",
+        "Outgoing/Incoming Ratio": "Ծախսերի/եկամուտների հարակցություն",
+        "Recent Outgoing Ratio": "Վերջին ծախսերի մասնաբաժին",
+        "Days Since Last Loan": "Օրեր վերջին վարկից",
+        "Months Since First Loan": "Ամիսներ առաջին վարկից",
+        "Loans Per Year": "Վարկեր տարեկան",
+        "Avg Gap Between Loans": "Միջին ընդմիջակ վարկերի միջև",
+        "Short-term Loan Share": "Կարճաժամկետ վարկերի մասնաբաժին",
+        "Avg Installments Per Loan": "Միջին վճարումների քանակ",
+        "Max Historical Loan Amount": "Առավելագույն վարկի գումար",
+        "Loan-to-Cash-Flow Ratio": "Վարկ/դրամական հոսքի հարակցություն",
+        "Age-to-Loan Ratio": "Տարիք/վարկի հարակցություն",
+        "Current Loan Amount": "Ընթացիկ վարկի գումար",
+        "Days Since Registration": "Օրեր գրանցումից",
+        "Application Day of Week": "Դիմումի շաբաթվա օր",
+        "Customer Age": "Հաճախորդի տարիք",
+    },
 }
+
 
 TRANSLATIONS: dict[str, dict[str, object]] = {
     "English": {
@@ -43,7 +92,7 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
         'select_dob': 'Select Date of Birth',
         'confirm_btn': '✅ Confirm',
         'welcome_back': '✅ Welcome back, {name}! Your information has been found.',
-        'new_customer': 'ℹ️ You are a new customer. Please fill in the required information below.',
+        'new_customer': 'ℹ️ Customer not found. To register a new customer, switch to the "New Customer" tab and fill in the details.',
         'step2_existing': 'Step 2: Your Information (Pre-filled)',
         'customer_id_label': 'Customer ID:',
         'full_name_label': 'Full Name:',
@@ -69,7 +118,7 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
         'loan_n': 'Loan {n}',
         'loan_date': 'Loan Date',
         'amount': 'Amount',
-        'num_emis': 'Number of EMIs',
+        'num_emis': 'Number of Installments',
         'status': 'Status',
         'loan_statuses': ['Closed', 'Active', 'Defaulted'],
         'txn_section': '💰 Transaction History (Required for accurate scoring)',
@@ -131,15 +180,15 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
         'gross_income_input': 'Gross Monthly Income ($)',
         'fmrc_reference': 'Based on your transaction history, your estimated monthly cash flow is **${amount}**. Enter your gross (pre-tax) monthly income below.',
         'existing_debt_header': '📋 Monthly Debt Obligations',
-        'existing_debt_info': 'Enter your current monthly debt payments to calculate your debt-to-income (DTI) ratio.',
+        'existing_debt_info': 'Include rent, auto loans, credit cards, student loans, and other monthly payments.',
         'debt_housing': 'Housing / Rent ($)',
-        'debt_auto': 'Auto Payments ($)',
+        'debt_auto': 'Auto Loan Payments ($)',
         'debt_credit_cards': 'Credit Card Payments ($)',
         'debt_student_loans': 'Student Loans ($)',
         'debt_other': 'Other Payments ($)',
-        'total_existing_debt': 'Total Monthly Debt',
-        'dti_ratio_label': 'Current DTI',
-        'dti_too_high': 'Your current DTI ({dti:.1%}) exceeds the maximum ({max_dti:.0%}) for this loan type. Reduce existing debts before applying.',
+        'total_existing_debt': 'Total Monthly Debt Payments ($)',
+        'dti_ratio_label': 'Debt-to-Income Ratio',
+        'dti_too_high': 'Your debt-to-income ratio ({dti:.1%}) exceeds the maximum ({max_dti:.0%}) for this loan type. Reduce existing debts before applying.',
         'mortgage_details': '🏠 Property & Down Payment',
         'property_value_mortgage': 'Property Value ($)',
         'down_payment_pct': 'Down Payment (%)',
@@ -157,16 +206,17 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
         'ltv_ratio': 'Loan-to-Value Ratio',
         'business_details': '📊 Business Information',
         'annual_revenue': 'Annual Business Revenue ($)',
-        'revenue_info': 'Annual revenue: ${amount}. Loan eligibility is based on personal income and DTI ratio.',
+        'revenue_info': 'Annual revenue: ${amount}. Loan eligibility is based on personal income and debt-to-income ratio.',
         'max_loan_amount': 'Maximum Loan Amount',
         'desired_amount': 'Desired Loan Amount ($)',
         'loan_term_months': 'Loan Term (months)',
+        'term_months_unit': 'months',
         'annual_interest_rate': 'Annual Interest Rate',
         'monthly_payment': 'Monthly Payment',
         'total_interest': 'Total Interest Paid',
         'total_repayment': 'Total Repayment',
         'loan_summary': '💰 Loan Summary',
-        'new_dti_label': 'Your DTI with this loan: **{dti}**',
+        'new_dti_label': 'Your debt-to-income ratio with this loan: **{dti}**',
         'below_min_amount': 'Maximum eligible amount is below the minimum of ${min} for this product.',
         'repayment_schedule': '📋 Repayment Schedule',
         'schedule_month': 'Month',
@@ -238,7 +288,7 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
         'select_dob': 'Выберите дату рождения',
         'confirm_btn': '✅ Подтвердить',
         'welcome_back': '✅ С возвращением, {name}! Ваша информация найдена.',
-        'new_customer': 'ℹ️ Вы новый клиент. Пожалуйста, заполните необходимую информацию ниже.',
+        'new_customer': 'ℹ️ Клиент не найден. Чтобы зарегистрировать нового клиента, перейдите на вкладку «Новый клиент» и заполните данные.',
         'step2_existing': 'Шаг 2: Ваша информация (предзаполнена)',
         'customer_id_label': 'ID клиента:',
         'full_name_label': 'Полное имя:',
@@ -264,9 +314,9 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
         'loan_n': 'Кредит {n}',
         'loan_date': 'Дата кредита',
         'amount': 'Сумма',
-        'num_emis': 'Количество платежей (EMI)',
+        'num_emis': 'Количество взносов',
         'status': 'Статус',
-        'loan_statuses': ['Закрыт', 'Активен', 'Просрочен'],
+        'loan_statuses': ['Закрыт', 'Активен', 'Дефолт'],
         'txn_section': '💰 История транзакций (необходима)',
         'txn_note': '<strong>Примечание:</strong> Для точного расчёта нам нужна история транзакций за 6 месяцев.',
         'add_txns_cb': 'У меня есть история транзакций',
@@ -323,18 +373,18 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
         'your_score_is': 'Ваш кредитный рейтинг: {score}',
         'not_eligible_msg': 'Вы не можете получить данный кредит. {reason}',
         'income_section': '💵 Доходы и обязательства',
-        'gross_income_input': 'Валовый ежемесячный доход ($)',
-        'fmrc_reference': 'По данным транзакций, ваш расчётный ежемесячный денежный поток составляет **${amount}**. Укажите ваш валовый (до вычета налогов) ежемесячный доход ниже.',
+        'gross_income_input': 'Валовой ежемесячный доход ($)',
+        'fmrc_reference': 'По данным транзакций, ваш расчётный ежемесячный денежный поток составляет **${amount}**. Укажите ваш валовой (до вычета налогов) ежемесячный доход ниже.',
         'existing_debt_header': '📋 Ежемесячные долговые обязательства',
-        'existing_debt_info': 'Укажите ваши текущие ежемесячные платежи для расчёта коэффициента долговой нагрузки (DTI).',
+        'existing_debt_info': 'Включая аренду, автокредит, кредитные карты, студенческие кредиты и прочие ежемесячные платежи.',
         'debt_housing': 'Жильё / Аренда ($)',
-        'debt_auto': 'Автоплатежи ($)',
-        'debt_credit_cards': 'Кредитные карты ($)',
-        'debt_student_loans': 'Студенческие займы ($)',
+        'debt_auto': 'Платежи по автокредиту ($)',
+        'debt_credit_cards': 'Платежи по кредитным картам ($)',
+        'debt_student_loans': 'Студенческие кредиты ($)',
         'debt_other': 'Прочие платежи ($)',
-        'total_existing_debt': 'Итого ежемесячный долг',
-        'dti_ratio_label': 'Текущий DTI',
-        'dti_too_high': 'Ваш текущий DTI ({dti:.1%}) превышает максимум ({max_dti:.0%}) для данного типа кредита. Уменьшите существующие долги.',
+        'total_existing_debt': 'Сумма ежемесячных платежей ($)',
+        'dti_ratio_label': 'Коэффициент долговой нагрузки',
+        'dti_too_high': 'Ваш коэффициент долговой нагрузки ({dti:.1%}) превышает максимум ({max_dti:.0%}) для данного типа кредита. Уменьшите существующие долги.',
         'mortgage_details': '🏠 Недвижимость и первоначальный взнос',
         'property_value_mortgage': 'Стоимость недвижимости ($)',
         'down_payment_pct': 'Первоначальный взнос (%)',
@@ -352,16 +402,17 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
         'ltv_ratio': 'Коэффициент LTV',
         'business_details': '📊 Информация о бизнесе',
         'annual_revenue': 'Годовая выручка бизнеса ($)',
-        'revenue_info': 'Годовая выручка: ${amount}. Доступность кредита основана на личном доходе и коэффициенте DTI.',
+        'revenue_info': 'Годовая выручка: ${amount}. Доступность кредита основана на личном доходе и коэффициенте долговой нагрузки.',
         'max_loan_amount': 'Максимальная сумма кредита',
         'desired_amount': 'Желаемая сумма ($)',
         'loan_term_months': 'Срок кредита (месяцы)',
+        'term_months_unit': 'мес.',
         'annual_interest_rate': 'Годовая процентная ставка',
         'monthly_payment': 'Ежемесячный платёж',
         'total_interest': 'Общая сумма процентов',
         'total_repayment': 'Общая сумма выплат',
         'loan_summary': '💰 Сводка кредита',
-        'new_dti_label': 'Ваш DTI с данным кредитом: **{dti}**',
+        'new_dti_label': 'Ваша долговая нагрузка с данным кредитом: **{dti}**',
         'below_min_amount': 'Максимальная доступная сумма ниже минимума ${min} для данного продукта.',
         'repayment_schedule': '📋 График погашения',
         'schedule_month': 'Месяц',
@@ -433,7 +484,7 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
         'select_dob': 'Ընտրեք ծննդյան ամսաթիվը',
         'confirm_btn': '✅ Հաստատել',
         'welcome_back': '✅ Բարի գալուստ, {name}! Ձեր տվյալները գտնվել են։',
-        'new_customer': 'ℹ️ Դուք նոր հաճախորդ եք։ Խնդրում ենք լրացնել անհրաժեշտ տեղեկատվությունը։',
+        'new_customer': 'ℹ️ Հաճախորդը չի գտնվել։ Նոր հաճախորդ գրանցելու համար անցեք «Նոր հաճախորդ» ներդիրկը և լրացրեք տվյալները։',
         'step2_existing': 'Քայլ 2: Ձեր տեղեկատվությունը (լրացված)',
         'customer_id_label': 'Հաճախորդի ID:',
         'full_name_label': 'Անուն ազգանուն:',
@@ -459,9 +510,9 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
         'loan_n': 'Վարկ {n}',
         'loan_date': 'Վարկի ամսաթիվ',
         'amount': 'Գումար',
-        'num_emis': 'Վճարների թիվ (EMI)',
+        'num_emis': 'Ապաշտումների թիվ',
         'status': 'Կարգավիճակ',
-        'loan_statuses': ['Փակված', 'Ակտիվ', 'Ծանր ժամկետային'],
+        'loan_statuses': ['Փակված', 'Ակտիվ', 'Դեֆոլտ'],
         'txn_section': '💰 Գործարքների պատմություն (պարտադիր)',
         'txn_note': '<strong>Ծանոթություն.</strong> Ճիշտ հաշվարկման համար անհրաժեշտ է 6 ամսվա գործարքների պատմությունը։',
         'add_txns_cb': 'Ես ունեմ գործարքների պատմություն',
@@ -506,7 +557,7 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
         'credit_education': 'Կրթական վարկ',
         'credit_business': 'Բիզնես վարկ',
         'credit_secured': 'Ապահովված վարկ',
-        'credit_personal_desc': 'Անապահովագրաված վարկ — ճկուն պայմաններ, մինչև $50,000',
+        'credit_personal_desc': 'Անապահով վարկ — ճկուն պայմաններ, մինչև $50,000',
         'credit_mortgage_desc': 'Բնակարանի գնում կամ վերաֆինանսավորում — մինչև 30 տարի, մրցակցային տոկոսադրույքներ',
         'credit_auto_desc': 'Նոր կամ օգտագործված մեքենայի ֆինանսավորում — մինչև 84 ամիս',
         'credit_education_desc': 'Մասնավոր ուսանողական վարկ — մինչև $150,000',
@@ -523,6 +574,7 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
         'max_loan_amount': 'Առավելագույն վարկի գումարը',
         'desired_amount': 'Ցանկալի վարկի գումարը ($)',
         'loan_term_months': 'Վարկի ժամկետը (ամիսներ)',
+        'term_months_unit': 'ամիս',
         'annual_interest_rate': 'Տարեկան տոկոսադրույքը',
         'monthly_payment': 'Ամսական վճարում',
         'total_interest': 'Ընդհանուր տոկոսներ',
@@ -541,22 +593,22 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
         'add_more_txn': '➕ Ավելացնել ևս մեկ գործարք',
         'names_required': 'Անունը և ազգանունը պարտադիր են պահպանման համար։',
         'country_label': 'Երկիր:',
-        'dependents_label': 'Խնամակալների թիվը:',
+        'dependents_label': 'Ախվածների թիվը:',
         'country_input': 'Երկիր',
-        'dependents_input': 'Խնամակալների թիվ',
+        'dependents_input': 'Ախվածների թիվ',
         'income_section': '💵 Եկամուտ և պարտավորություններ',
         'gross_income_input': 'Համախառն ամսական եկամուտ ($)',
         'fmrc_reference': 'Գործարքների պատմության հիման վրա, ձեր գնահատված ամսական դրամական հոսքը կազմում է **${amount}**։ Նշեք ձեր համախառն (հարկերից առաջ) ամսական եկամուտը։',
         'existing_debt_header': '📋 Ամսական պարտավորություններ',
-        'existing_debt_info': 'Նշեք ձեր ընթացիկ ամսական վճարումները՝ DTI հարակցությունը հաշվարկելու համար։',
+        'existing_debt_info': 'Ներառյալ վարձ, ավտովարկ, վարկային քարտեր, ուսանողական վարկեր և այլ ամսական վճարումներ։',
         'debt_housing': 'Բնակարան / վարձ ($)',
-        'debt_auto': 'Ավտովճարումներ ($)',
-        'debt_credit_cards': 'Վարկային քարտեր ($)',
+        'debt_auto': 'Ավտովարկի վճարումներ ($)',
+        'debt_credit_cards': 'Վարկային քարտերի վճարումներ ($)',
         'debt_student_loans': 'Ուսանողական վարկեր ($)',
         'debt_other': 'Այլ վճարումներ ($)',
-        'total_existing_debt': 'Ընդհանուր ամսական պարտք',
-        'dti_ratio_label': 'Ընթացիկ DTI',
-        'dti_too_high': 'Ձեր ընթացիկ DTI ({dti:.1%}) գերազանցում է առավելագույնը ({max_dti:.0%})։ Նվազեցրեք գոյություն ունեցող պարտքերը։',
+        'total_existing_debt': 'Ամսական վճարումների ընդհանուր գումար ($)',
+        'dti_ratio_label': 'Պարտք/եկամուտ հարակցություն',
+        'dti_too_high': 'Ձեր ընթացիկ պարտքի/եկամուտի հարակցությունը ({dti:.1%}) գերազանցում է առավելագույնը ({max_dti:.0%})։ Նվազեցրեք գոյություն ունեցող պարտքերը։',
         'mortgage_details': '🏠 Գույք և կանխավճար',
         'property_value_mortgage': 'Գույքի արժեքը ($)',
         'down_payment_pct': 'Կանխավճար (%)',
@@ -570,8 +622,8 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
         'collateral_value': 'Գրավի արժեքը ($)',
         'business_details': '📊 Բիզնեսի տեղեկատվություն',
         'annual_revenue': 'Տարեկան եկամուտ ($)',
-        'revenue_info': 'Տարեկան եկամուտ՝ ${amount}։ Վարկի հասանելիությունը հիմնված է անձնական եկամուտի և DTI հարակցության վրա։',
-        'new_dti_label': 'Ձեր DTI այս վարկով՝ **{dti}**',
+        'revenue_info': 'Տարեկան եկամուտ՝ ${amount}։ Վարկի հասանելիությունը հիմնված է անձնական եկամուտի և պարտքի/եկամուտի հարակցության վրա։',
+        'new_dti_label': 'Ձեր պարտքի/եկամուտի հարակցությունը այս վարկով՝ **{dti}**',
         'below_min_amount': 'Առավելագույն հասանելի գումարը ցածր է այս արտադրանքի նվազագույնից՝ ${min}։',
         'data_completeness': 'Տվյալների լրիվություն',
         'data_full': 'Լիարժակ — {months} ամսվա տվյալներ',
@@ -610,23 +662,21 @@ TRANSLATIONS: dict[str, dict[str, object]] = {
 }
 
 
-def t(key: str) -> str:
-    """Get translated string for current language."""
-    lang = st.session_state.get("language", "English")
-    return TRANSLATIONS.get(lang, TRANSLATIONS["English"]).get(
+def t(key: str, language: str = "English") -> str:
+    """Get translated string for the given language."""
+    return TRANSLATIONS.get(language, TRANSLATIONS["English"]).get(
         key, TRANSLATIONS["English"].get(key, key)
     )
 
 
-def map_to_english(mapping: dict, display_value: str) -> str:
+def map_to_english(mapping: dict, display_value: str, language: str = "English") -> str:
     """Map a localised display value back to its English equivalent.
 
-    Checks the current language first, then falls back to all languages
+    Checks the specified language first, then falls back to all languages
     so that a language switch mid-session doesn't send untranslated text.
     """
-    lang = st.session_state.get("language", "English")
-    # Try current language first
-    result = mapping.get(lang, {}).get(display_value)
+    # Try specified language first
+    result = mapping.get(language, {}).get(display_value)
     if result is not None:
         return result
     # Fallback: search all languages

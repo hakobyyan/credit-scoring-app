@@ -37,8 +37,15 @@ logger = logging.getLogger("credit_scoring_service")
 
 # ── Load selected features list ──
 _features_path = settings.selected_features_path
-with open(_features_path) as f:
-    SELECTED_FEATURES: list[str] = json.load(f)
+try:
+    with open(_features_path) as f:
+        SELECTED_FEATURES: list[str] = json.load(f)
+except FileNotFoundError:
+    logger.error("Selected features file not found: %s", _features_path)
+    raise SystemExit(f"FATAL: features file missing: {_features_path}")
+except json.JSONDecodeError as e:
+    logger.error("Invalid JSON in features file %s: %s", _features_path, e)
+    raise SystemExit(f"FATAL: corrupt features file: {_features_path}")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -54,8 +61,26 @@ def prepare_features_from_json(json_input: dict) -> pd.DataFrame:
     customer_df["DateRegistered"] = pd.to_datetime(customer_df["DateRegistered"])
     customer_df["DateOfBirth"] = pd.to_datetime(customer_df["DateOfBirth"])
 
-    # ── No loan history path ──
-    if loan_df.empty or "LoanApplicationDate" not in loan_df.columns:
+    # ── No loan-date path (loans may exist but lack LoanApplicationDate) ──
+    has_loan_dates = (not loan_df.empty
+                      and "LoanApplicationDate" in loan_df.columns
+                      and loan_df["LoanApplicationDate"].dropna().astype(str).str.strip().ne("").any())
+
+    if loan_df.empty or not has_loan_dates:
+        # Extract what we can from dateless loans
+        if not loan_df.empty:
+            previously_defaulted = int(loan_df.get("LoanStatus", pd.Series()).eq("Defaulted").any())
+            loan_count = len(loan_df)
+            short_term = loan_df[loan_df.get("NumberOfEMIs", pd.Series(dtype=int)) <= 6].shape[0] if "NumberOfEMIs" in loan_df.columns else 0
+            short_term_ratio = short_term / loan_count if loan_count else 0
+            mean_emis = float(loan_df["NumberOfEMIs"].mean()) if "NumberOfEMIs" in loan_df.columns else 0
+            max_amt = float(loan_df["Amount"].max()) if "Amount" in loan_df.columns else 0
+            current_amt = float(loan_df.iloc[-1]["Amount"]) if "Amount" in loan_df.columns else 0
+        else:
+            previously_defaulted = 0
+            loan_count = 0
+            short_term_ratio = mean_emis = max_amt = current_amt = 0
+
         if not txn_df.empty and "TransactionDate" in txn_df.columns:
             txn_df["TransactionDate"] = pd.to_datetime(txn_df["TransactionDate"])
             txn_df["SignedAmount"] = txn_df.apply(
@@ -78,25 +103,25 @@ def prepare_features_from_json(json_input: dict) -> pd.DataFrame:
             out_in_ratio = recent_out_ratio = 0
 
         feature_vector = {
-            "PreviouslyDefaulted": 0,
+            "PreviouslyDefaulted": previously_defaulted,
             "Txn_Avg": txn_avg,
             "Txn_Sum_6M": sum_6m,
             "Hist_DaysSinceLastLoan": 0,
-            "LoanAmountToTxnNetRatio": 0,
-            "Amount": 0,
+            "LoanAmountToTxnNetRatio": current_amt / (abs(sum_6m) + 1e-6) if current_amt else 0,
+            "Amount": current_amt,
             "Hist_MonthsSinceFirstLoan": 0,
-            "AgeToLoanRatio": 0,
+            "AgeToLoanRatio": ((app_date - customer_df.iloc[0]["DateOfBirth"]).days // 365) / (current_amt + 1e-6) if current_amt else 0,
             "DaysSinceRegistration": (app_date - customer_df.iloc[0]["DateRegistered"]).days,
             "Txn_Sum_3M": sum_3m,
             "Hist_LoanFrequencyPerYear": 0,
             "ApplicationWeekday": app_date.weekday(),
-            "Hist_ShortTermLoanShare": 0,
+            "Hist_ShortTermLoanShare": short_term_ratio,
             "Hist_AvgLoanGap": 0,
             "Txn_Count": txn_count,
-            "Hist_MeanEMIs": 0,
+            "Hist_MeanEMIs": mean_emis,
             "OutgoingToIncomingRatio": out_in_ratio,
             "Txn_LastDaysAgo": last_txn_days_ago,
-            "Hist_MaxAmount": 0,
+            "Hist_MaxAmount": max_amt,
             "RecentOutRatio": recent_out_ratio,
             "CustomerAgeAtApplication": (app_date - customer_df.iloc[0]["DateOfBirth"]).days // 365,
         }
@@ -104,11 +129,14 @@ def prepare_features_from_json(json_input: dict) -> pd.DataFrame:
 
     # ── Full loan-history path ──
     loan_df["LoanApplicationDate"] = pd.to_datetime(loan_df["LoanApplicationDate"])
-    txn_df["TransactionDate"] = pd.to_datetime(txn_df["TransactionDate"])
-    txn_df["SignedAmount"] = txn_df.apply(
-        lambda row: row["Amount"] if row["Type"] == "Incoming" else -row["Amount"],
-        axis=1,
-    )
+    if not txn_df.empty and "TransactionDate" in txn_df.columns:
+        txn_df["TransactionDate"] = pd.to_datetime(txn_df["TransactionDate"])
+        txn_df["SignedAmount"] = txn_df.apply(
+            lambda row: row["Amount"] if row["Type"] == "Incoming" else -row["Amount"],
+            axis=1,
+        )
+    else:
+        txn_df = pd.DataFrame(columns=["TransactionDate", "SignedAmount"])
 
     loan_df = loan_df.sort_values(by="LoanApplicationDate")
     app_date = loan_df.iloc[-1]["LoanApplicationDate"]
@@ -251,8 +279,12 @@ def _compute_shap_explanations(
 # BentoML Service
 # ═══════════════════════════════════════════════════════════════
 
-model_ref = bentoml.xgboost.get(settings.model_tag)
-model_runner = model_ref.load_model()
+try:
+    model_ref = bentoml.xgboost.get(settings.model_tag)
+    model_runner = model_ref.load_model()
+except Exception as e:
+    logger.error("Failed to load model '%s': %s", settings.model_tag, e)
+    raise SystemExit(f"FATAL: cannot load model '{settings.model_tag}': {e}")
 
 
 @bentoml.service(
@@ -286,7 +318,7 @@ class CreditScoringService:
         # Credit score with data-completeness penalty
         raw_score = max(SCORE_MIN, int(SCORE_MAX - (prob_default * SCORE_FORMULA_FACTOR)))
         months_available = _compute_transaction_months(json_input)
-        completeness_factor = 0.5 + 0.5 * (months_available / DATA_COMPLETENESS_MONTHS)
+        completeness_factor = min(1.0, 0.5 + 0.5 * (months_available / DATA_COMPLETENESS_MONTHS))
         score = max(SCORE_MIN, int(SCORE_MIN + (raw_score - SCORE_MIN) * completeness_factor))
         score = min(SCORE_MAX, score)
 
@@ -346,24 +378,3 @@ class CreditScoringService:
             "model_loaded": self.model is not None,
             "version": self.model_tag,
         }
-
-    # ── Deprecated endpoints (kept for backward compatibility) ──
-
-    @bentoml.api
-    def predict_probability(self, json_input: dict) -> dict:
-        """(Deprecated) Use evaluate_customer instead."""
-        features = prepare_features_from_json(json_input)
-        prob_default = _predict_proba(self.model, features)
-        return {"DefaultProbability": int(np.round(prob_default * 100))}
-
-    @bentoml.api
-    def predict_credit_score(self, json_input: dict) -> dict:
-        """(Deprecated) Use evaluate_customer instead."""
-        result = self.evaluate_customer(json_input)
-        return {"CreditScore": result["credit_score"], "Risk Level": result["risk_level"]}
-
-    @bentoml.api
-    def calculate_fmrc(self, json_input: dict) -> dict:
-        """(Deprecated) Use evaluate_customer instead."""
-        result = self.evaluate_customer(json_input)
-        return {"FMRC": result["fmrc"]}

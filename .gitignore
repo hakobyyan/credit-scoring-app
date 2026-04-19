@@ -28,5 +28,8 @@ Thumbs.db
 # Data files (Excel) — uncomment if data should not be tracked
 # *.xlsx
 
+# PID files
+.pids/
+
 # Jupyter
 .ipynb_checkpoints/

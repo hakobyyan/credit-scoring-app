@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
+import time
 from abc import ABC, abstractmethod
 from datetime import date
-from typing import Optional
 
 import pandas as pd
-import streamlit as st
 
 from config.settings import settings
 
@@ -45,7 +45,7 @@ class CustomerRepository(ABC):
     def get_all_customers(self) -> pd.DataFrame: ...
 
     @abstractmethod
-    def find_customer(self, first_name: str, last_name: str, dob: date) -> Optional[dict]: ...
+    def find_customer(self, first_name: str, last_name: str, dob: date) -> dict | None: ...
 
     @abstractmethod
     def find_customers_by_name(self, first_name: str, last_name: str) -> list[dict]: ...
@@ -55,6 +55,12 @@ class CustomerRepository(ABC):
 
     @abstractmethod
     def get_unique_last_names(self) -> list[str]: ...
+
+    @abstractmethod
+    def get_filtered_first_names(self, last_name: str) -> list[str]: ...
+
+    @abstractmethod
+    def get_filtered_last_names(self, first_name: str) -> list[str]: ...
 
     @abstractmethod
     def save_customer(self, profile: dict) -> str: ...
@@ -81,19 +87,45 @@ class TransactionRepository(ABC):
 
 # ── Module-level cached loaders (avoids unhashable-self issues) ──
 
-@st.cache_data(ttl=30)
+_excel_cache: dict[str, tuple[float, pd.DataFrame]] = {}
+_cache_lock = threading.Lock()
+_CACHE_TTL = 30  # seconds
+
+
 def _load_excel(path: str) -> pd.DataFrame:
-    """Read an Excel file, strip column whitespace, return a DataFrame."""
+    """Read an Excel file, strip column whitespace, return a DataFrame.
+
+    Results are cached in-memory with a 30-second TTL.
+    """
+    now = time.monotonic()
+    with _cache_lock:
+        cached = _excel_cache.get(path)
+        if cached is not None:
+            ts, df = cached
+            if now - ts < _CACHE_TTL:
+                return df.copy()
+
     try:
         if not os.path.exists(path):
             logger.warning("Data file not found: %s", path)
             return pd.DataFrame()
         df = pd.read_excel(path)
         df.columns = df.columns.str.strip()
-        return df
+        with _cache_lock:
+            _excel_cache[path] = (now, df)
+        return df.copy()
     except Exception as e:
         logger.error("Failed to load %s: %s", path, e)
         return pd.DataFrame()
+
+
+def _invalidate_cache(path: str | None = None) -> None:
+    """Clear the Excel cache for a specific path or all paths."""
+    with _cache_lock:
+        if path is None:
+            _excel_cache.clear()
+        else:
+            _excel_cache.pop(path, None)
 
 
 # ── Excel implementations ──
@@ -108,7 +140,7 @@ class ExcelCustomerRepository(CustomerRepository):
     def get_all_customers(self) -> pd.DataFrame:
         return self._df()
 
-    def find_customer(self, first_name: str, last_name: str, dob: date) -> Optional[dict]:
+    def find_customer(self, first_name: str, last_name: str, dob: date) -> dict | None:
         df = self._df()
         if df.empty:
             return None
@@ -162,7 +194,7 @@ class ExcelCustomerRepository(CustomerRepository):
         new_row = pd.DataFrame([_sanitize_dict(profile)])
         updated = pd.concat([df, new_row], ignore_index=True)
         updated.to_excel(self._path, index=False)
-        _load_excel.clear()
+        _invalidate_cache(self._path)
         return profile.get("CustomerID", "")
 
     def get_filtered_first_names(self, last_name: str) -> list[str]:
@@ -202,7 +234,7 @@ class ExcelLoanRepository(LoanRepository):
         new_rows = pd.DataFrame([_sanitize_dict(row) for row in loans])
         updated = pd.concat([df, new_rows], ignore_index=True)
         updated.to_excel(self._path, index=False)
-        _load_excel.clear()
+        _invalidate_cache(self._path)
 
 
 class ExcelTransactionRepository(TransactionRepository):
@@ -225,4 +257,4 @@ class ExcelTransactionRepository(TransactionRepository):
         new_rows = pd.DataFrame([_sanitize_dict(row) for row in transactions])
         updated = pd.concat([df, new_rows], ignore_index=True)
         updated.to_excel(self._path, index=False)
-        _load_excel.clear()
+        _invalidate_cache(self._path)

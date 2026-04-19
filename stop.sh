@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Credit Scoring Application Stop Script
 # Uses PID files for clean shutdown — no blind kill-by-port.
@@ -8,9 +9,10 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-PID_DIR="${PID_DIR:-/tmp}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PID_DIR="${PID_DIR:-$SCRIPT_DIR/.pids}"
 BENTOML_PID_FILE="$PID_DIR/credit_scoring_bentoml.pid"
-STREAMLIT_PID_FILE="$PID_DIR/credit_scoring_streamlit.pid"
+WEBAPP_PID_FILE="$PID_DIR/credit_scoring_webapp.pid"
 
 echo -e "${YELLOW}🛑 Stopping Credit Scoring services...${NC}"
 
@@ -43,6 +45,6 @@ _stop_service() {
 }
 
 _stop_service "$BENTOML_PID_FILE" "BentoML"
-_stop_service "$STREAMLIT_PID_FILE" "Streamlit"
+_stop_service "$WEBAPP_PID_FILE" "WebApp"
 
 echo -e "${GREEN}✅ All services stopped${NC}"

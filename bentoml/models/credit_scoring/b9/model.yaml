@@ -10,7 +10,7 @@ context:
   framework_versions:
     xgboost: 3.2.0
   bentoml_version: 1.4.35
-  python_version: 3.14.3
+  python_version: 3.12.3
 signatures:
   predict:
     batchable: false
