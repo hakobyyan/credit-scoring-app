@@ -1,0 +1,23 @@
+[
+    "PreviouslyDefaulted",
+    "Txn_Avg",
+    "Txn_Sum_6M",
+    "Hist_DaysSinceLastLoan",
+    "LoanAmountToTxnNetRatio",
+    "Amount",
+    "Hist_MonthsSinceFirstLoan",
+    "AgeToLoanRatio",
+    "DaysSinceRegistration",
+    "Txn_Sum_3M",
+    "Hist_LoanFrequencyPerYear",
+    "ApplicationWeekday",
+    "Hist_ShortTermLoanShare",
+    "Hist_AvgLoanGap",
+    "Txn_Count",
+    "Hist_MeanEMIs",
+    "OutgoingToIncomingRatio",
+    "Txn_LastDaysAgo",
+    "Hist_MaxAmount",
+    "RecentOutRatio",
+    "CustomerAgeAtApplication"
+]

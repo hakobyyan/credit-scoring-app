@@ -1,0 +1,16 @@
+bentoml
+matplotlib
+numpy
+optuna
+openpyxl
+pandas
+pydantic
+python-dotenv
+requests
+scikit-learn
+scipy
+seaborn
+shap
+streamlit
+tqdm
+xgboost
