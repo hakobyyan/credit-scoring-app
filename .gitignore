@@ -25,9 +25,6 @@ env/
 .DS_Store
 Thumbs.db
 
-# BentoML local store
-bentoml/
-
 # Data files (Excel) — uncomment if data should not be tracked
 # *.xlsx
 
